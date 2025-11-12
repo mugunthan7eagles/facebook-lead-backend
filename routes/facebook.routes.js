@@ -27,4 +27,9 @@ router.get("/webhook", (req, res) => {
 
 router.get("/leads/:organizationId", getLeads); // 👈 add this line
 
+router.post("/webhook", express.json(), (req, res) => {
+  console.log("📥 Lead Received:", JSON.stringify(req.body, null, 2));
+  res.sendStatus(200);
+});
+
 export default router;
