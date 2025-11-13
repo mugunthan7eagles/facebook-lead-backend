@@ -90,7 +90,7 @@ export const postWebhook = async (req, res) => {
           `https://graph.facebook.com/v20.0/${leadgen_id}`,
           {
             params: {
-              access_token: config.pageAccessToken,
+              access_token: config.systemUserToken,
               fields: "field_data,created_time,ad_id,form_id,page_id",
             },
           }
