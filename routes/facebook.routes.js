@@ -15,9 +15,8 @@ router.post("/connect", connectFacebook);
 router.get("/webhook", verifyWebhook);
 router.post("/webhook", express.json(), postWebhook);
 
+router.get("/leads", getLeads);
 router.get("/user-data", getUserData);
-router.post("/save-config", saveConfig);
 
-router.get("/leads/:organizationId", getLeads);
 
 export default router;
