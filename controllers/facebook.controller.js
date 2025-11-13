@@ -29,7 +29,7 @@ export const connectFacebook = async (req, res) => {
       }
     );
 
-    await FacebookConfig.deleteMany({}); // ensure only one config exists
+    await FacebookConfig.deleteMany({}); // only 1 config
 
     await FacebookConfig.create({
       pageId: page.id,
@@ -52,69 +52,85 @@ export const connectFacebook = async (req, res) => {
       adAccounts: adAccRes.data.data,
     });
   } catch (err) {
-    console.error(err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data || err.message });
   }
 };
 
-
 // --------------------------------------------------------
-// VERIFY WEBHOOK (GET)
+// VERIFY WEBHOOK
 // --------------------------------------------------------
 export const verifyWebhook = (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
-    return res.status(200).send(challenge);
+  if (
+    req.query["hub.mode"] === "subscribe" &&
+    req.query["hub.verify_token"] === process.env.VERIFY_TOKEN
+  ) {
+    return res.status(200).send(req.query["hub.challenge"]);
   }
-  return res.sendStatus(403);
+  res.sendStatus(403);
 };
 
 // --------------------------------------------------------
-// WEBHOOK LEAD RECEIVER (POST)
+// HANDLE WEBHOOK LEADS
 // --------------------------------------------------------
 export const postWebhook = async (req, res) => {
+  console.log("📥 Incoming Facebook Webhook:", JSON.stringify(req.body, null, 2));
+
   const entries = req.body.entry || [];
 
-  for (const entry of entries) {
-    for (const change of entry.changes || []) {
+  for (let entry of entries) {
+    for (let change of entry.changes || []) {
       if (change.field === "leadgen") {
         const { leadgen_id, page_id } = change.value;
 
-        const config = await FacebookConfig.findOne({ pageId: page_id });
-        if (!config) continue;
+        console.log("🔍 Leadgen Event Detected:", change.value);
 
-        const leadRes = await axios.get(
-          `https://graph.facebook.com/v20.0/${leadgen_id}`,
-          {
-            params: {
-              access_token: config.systemUserToken,
-              fields: "field_data,created_time,ad_id,form_id,page_id",
-            },
+        try {
+          const config = await FacebookConfig.findOne({ pageId: page_id });
+          if (!config) {
+            console.log("❌ No config found for page:", page_id);
+            continue;
           }
-        );
 
-        const lead = leadRes.data;
+          const leadRes = await axios.get(
+            `https://graph.facebook.com/v20.0/${leadgen_id}`,
+            {
+              params: {
+                access_token: config.systemUserToken,
+                fields: "field_data,created_time,ad_id,form_id,page_id",
+              },
+            }
+          );
 
-        const fields = {};
-        (lead.field_data || []).forEach((f) => {
-          fields[f.name] = f.values[0];
-        });
+          const lead = leadRes.data;
 
-        await FacebookLead.create({
-          pageId: config.pageId,
-          leadgen_id: lead.id,
-          form_id: lead.form_id,
-          ad_id: lead.ad_id,
-          Name: fields.full_name || fields.name || "",
-          email: fields.email || "",
-          mobileNumber: fields.phone_number || "",
-          leadDate: lead.created_time,
-        });
+          console.log("📄 Lead Data Fetched From Facebook:", lead);
 
-        console.log("✅ Lead saved:", lead.id);
+          const fields = {};
+          (lead.field_data || []).forEach((f) => {
+            fields[f.name] = f.values[0];
+          });
+
+          await FacebookLead.create({
+            pageId: config.pageId,
+            leadgen_id: lead.id,
+            form_id: lead.form_id,
+            ad_id: lead.ad_id,
+            Name: fields.full_name || fields.name || "",
+            email: fields.email || "",
+            mobileNumber: fields.phone_number || "",
+            leadDate: lead.created_time,
+          });
+
+          console.log("✅ Saved Lead To Database:", {
+            id: lead.id,
+            name: fields.full_name || fields.name,
+            email: fields.email,
+            phone: fields.phone_number
+          });
+
+        } catch (err) {
+          console.error("❌ Lead Fetch Error:", err.response?.data || err.message);
+        }
       }
     }
   }
@@ -124,41 +140,9 @@ export const postWebhook = async (req, res) => {
 
 
 // --------------------------------------------------------
-// FETCH USER DATA
-// --------------------------------------------------------
-export const getUserData = async (req, res) => {
-  const { organizationId } = req.query;
-
-  const config = await FacebookConfig.findOne({ organizationId });
-
-  if (!config)
-    return res.json({ page: null, adAccounts: [] });
-
-  res.json({
-    page: { id: config.pageId, name: config.pageName },
-    adAccounts: config.adAccounts,
-  });
-};
-
-// --------------------------------------------------------
-// SAVE AD ACCOUNT
-// --------------------------------------------------------
-export const saveConfig = async (req, res) => {
-  const { organizationId, adAccountId } = req.body;
-
-  await FacebookConfig.updateOne(
-    { organizationId },
-    { selectedAdAccount: adAccountId }
-  );
-
-  res.json({ success: true });
-};
-
-// --------------------------------------------------------
-// GET LEADS
+// GET ALL LEADS
 // --------------------------------------------------------
 export const getLeads = async (req, res) => {
   const leads = await FacebookLead.find().sort({ createdAt: -1 });
   res.json({ success: true, data: leads });
 };
-
