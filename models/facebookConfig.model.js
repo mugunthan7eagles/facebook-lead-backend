@@ -7,7 +7,8 @@ const facebookConfigSchema = new mongoose.Schema({
   pageName: String,
   pageAccessToken: String,
   systemUserToken: String,
-  adAccounts: [{ id: String, name: String }],
+  adAccounts: [],
+  selectedAdAccount: String,
   connectedAt: Date,
 });
 
