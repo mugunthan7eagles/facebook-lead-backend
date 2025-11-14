@@ -5,9 +5,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// --------------------------------------------------------
-// CONNECT FACEBOOK
-// --------------------------------------------------------
+
 export const connectFacebook = async (req, res) => {
   try {
     const { systemUserToken } = req.body;
@@ -56,9 +54,7 @@ export const connectFacebook = async (req, res) => {
   }
 };
 
-// --------------------------------------------------------
-// VERIFY WEBHOOK
-// --------------------------------------------------------
+
 export const verifyWebhook = (req, res) => {
   if (
     req.query["hub.mode"] === "subscribe" &&
@@ -69,9 +65,7 @@ export const verifyWebhook = (req, res) => {
   res.sendStatus(403);
 };
 
-// --------------------------------------------------------
-// HANDLE WEBHOOK LEADS
-// --------------------------------------------------------
+
 export const postWebhook = async (req, res) => {
   console.log("📥 Incoming Facebook Webhook:", JSON.stringify(req.body, null, 2));
 
@@ -95,7 +89,7 @@ export const postWebhook = async (req, res) => {
             `https://graph.facebook.com/v20.0/${leadgen_id}`,
             {
               params: {
-                access_token: config.systemUserToken,
+                access_token: config.pageAccessToken,
                 fields: "field_data,created_time,ad_id,form_id,page_id",
               },
             }
@@ -139,9 +133,6 @@ export const postWebhook = async (req, res) => {
 };
 
 
-// --------------------------------------------------------
-// GET ALL LEADS
-// --------------------------------------------------------
 export const getLeads = async (req, res) => {
   const leads = await FacebookLead.find().sort({ createdAt: -1 });
   res.json({ success: true, data: leads });
