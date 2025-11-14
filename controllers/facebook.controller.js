@@ -85,12 +85,13 @@ export const postWebhook = async (req, res) => {
             continue;
           }
 
+          // 🔥 FIXED: remove page_id from fields
           const leadRes = await axios.get(
             `https://graph.facebook.com/v20.0/${leadgen_id}`,
             {
               params: {
                 access_token: config.pageAccessToken,
-                fields: "field_data,created_time,ad_id,form_id,page_id",
+                fields: "field_data,created_time,ad_id,form_id"
               },
             }
           );
@@ -115,12 +116,7 @@ export const postWebhook = async (req, res) => {
             leadDate: lead.created_time,
           });
 
-          console.log("✅ Saved Lead To Database:", {
-            id: lead.id,
-            name: fields.full_name || fields.name,
-            email: fields.email,
-            phone: fields.phone_number
-          });
+          console.log("✅ Saved Lead To Database:", lead.id);
 
         } catch (err) {
           console.error("❌ Lead Fetch Error:", err.response?.data || err.message);
@@ -131,6 +127,7 @@ export const postWebhook = async (req, res) => {
 
   res.sendStatus(200);
 };
+  
 
 
 export const getLeads = async (req, res) => {
